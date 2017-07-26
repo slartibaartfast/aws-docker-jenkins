@@ -23,4 +23,7 @@ Build and run using Docker Compose:
 
 ## Deploying to AWS
 
+  on checkin to this repo
+	todo: add a command
+
 Hello world!
