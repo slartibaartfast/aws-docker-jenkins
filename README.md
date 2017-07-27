@@ -32,4 +32,4 @@ Build and run using Docker Compose:
 	TODO: add a build command example
 	      add some tests to Jenkins
 				add a subdomain and route it to the cluster
-				testing 2
+				testing 3
