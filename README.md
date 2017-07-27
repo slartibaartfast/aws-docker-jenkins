@@ -25,11 +25,12 @@ Build and run using Docker Compose:
 
 [See the tutorial](http://docs.aws.amazon.com/AWSGettingStartedContinuousDeliveryPipeline/latest/GettingStarted/CICD_Jenkins_Pipeline.html)
 
+[Download the jenkins cli](http://ec2-107-21-81-252.compute-1.amazonaws.com/jnlpJars/jenkins-cli.jar)
+
   A build is kicked off upon a checkin to this repo
-	To run a build command manually, download jenkins-cli.jar and use the Jenkins CLI available at
-	java -jar jenkins-cli.jar -s http://ec2-107-21-81-252.compute-1.amazonaws.com/ help
+
+	To run a build command manually, use the Jenkins CLI
+
+	$ java -jar jenkins-cli.jar -s http://ec2-107-21-81-252.compute-1.amazonaws.com/ build Stelligent
 
 	TODO: add a build command example
-	      add some tests to Jenkins
-				add a subdomain and route it to the cluster
-				testing 3
