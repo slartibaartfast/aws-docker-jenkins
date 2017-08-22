@@ -1,9 +1,9 @@
 {
-    "family": "scripted-family",
+    "family": "scripted-repo",
     "containerDefinitions": [
         {
             "image": "%REPOSITORY_URI%:v_%BUILD_NUMBER%",
-            "name": "scripted-name",
+            "name": "scripted-repo",
             "cpu": 10,
             "memory": 256,
             "essential": true,
