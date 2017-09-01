@@ -102,7 +102,7 @@
             "Action": ["sts:AssumeRole"]
           }]
         },
-        "ManagedPolicyArns":["arn:aws:iam::aws:policy/AmazonEC2ContainerServiceFullAccess","arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"],
+        "ManagedPolicyArns":["arn:aws:iam::aws:policy/AmazonEC2ContainerServiceFullAccess","arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess","arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"],
         "Path": "/",
         "Policies": [{
           "PolicyName": "JenkinsRolePolicy",
@@ -447,6 +447,9 @@
               }, "\n",
               "yum remove -y java-1.7.0\n",
 
+              "# Install the SSM agent RPM\n",
+              "yum install -y https://amazon-ssm-us-east-1.s3.amazonaws.com/latest/linux_amd64/amazon-ssm-agent.rpm\n",
+
               "# Install Jenkins\n",
               "wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo\n",
               "rpm --import http://pkg.jenkins-ci.org/redhat/jenkins-ci.org.key\n",
@@ -475,7 +478,18 @@
               "curl -O -L https://updates.jenkins-ci.org/latest/github.hpi\n",
               "curl -O -L https://updates.jenkins-ci.org/latest/git.hpi\n",
               "curl -O -L https://updates.jenkins-ci.org/latest/dockerhub.hpi\n",
+              "curl -O -L https://updates.jenkins-ci.org/latest/amazon-ecr.hpi\n",
+              "# chown jenkins:jenkins *.hpi\n",
+
+              "# Update plugins and install dependancies\n",
+              "# java -jar jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin <name>\n",
+              "# java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://localhost:8080/ install-plugin docker-build-publish\n",
+              "# java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://localhost:8080/ install-plugin amazon-ecr\n",
+
               "chown jenkins:jenkins *.hpi\n",
+
+              "# Add a file to negate the setup wizard\n",
+              "echo \"2.0\" >> /var/lib/jenkins/jenkins.install.InstallUtil.lastExecVersion\n",
 
               "# Restarting Jenkins\n",
               "service jenkins restart\n",

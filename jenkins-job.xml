@@ -1,0 +1,117 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>A freestyle build configuration</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.27.0">
+      <projectUrl>https://github.com/slartibaartfast/aws-docker-jenkins/</projectUrl>
+      <displayName></displayName>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@3.4.1">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>https://github.com/slartibaartfast/aws-docker-jenkins.git</url>
+        <credentialsId>85dc44be-a330-4328-af56-7de451f2a786</credentialsId>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/master</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <submoduleCfg class="list"/>
+    <extensions/>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <com.cloudbees.jenkins.GitHubPushTrigger plugin="github@1.27.0">
+      <spec></spec>
+    </com.cloudbees.jenkins.GitHubPushTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+DOCKER_LOGIN=`aws ecr get-login --region us-east-1`
+${DOCKER_LOGIN}</command>
+    </hudson.tasks.Shell>
+    <com.cloudbees.dockerpublish.DockerBuilder plugin="docker-build-publish@1.3.2">
+      <server plugin="docker-commons@1.8"/>
+      <registry plugin="docker-commons@1.8">
+        <url>https://817710089510.dkr.ecr.us-east-1.amazonaws.com</url>
+      </registry>
+      <repoName>scripted-repo</repoName>
+      <noCache>false</noCache>
+      <forcePull>true</forcePull>
+      <skipBuild>false</skipBuild>
+      <skipDecorate>false</skipDecorate>
+      <repoTag>v_$BUILD_NUMBER</repoTag>
+      <skipPush>false</skipPush>
+      <createFingerprint>true</createFingerprint>
+      <skipTagLatest>false</skipTagLatest>
+      <buildAdditionalArgs></buildAdditionalArgs>
+      <forceTag>false</forceTag>
+    </com.cloudbees.dockerpublish.DockerBuilder>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+#Constants
+
+REGION=us-east-1
+REPOSITORY_NAME=scripted-repo
+CLUSTER=scripted-cluster
+FAMILY=`sed -n &apos;s/.*&quot;family&quot;: &quot;\(.*\)&quot;,/\1/p&apos; taskdef.json`
+NAME=`sed -n &apos;s/.*&quot;name&quot;: &quot;\(.*\)&quot;,/\1/p&apos; taskdef.json`
+SERVICE_NAME=${NAME}-service
+
+#Store the repositoryUri as a variable
+REPOSITORY_URI=`aws ecr describe-repositories --repository-names ${REPOSITORY_NAME} --region ${REGION} | jq .repositories[].repositoryUri | tr -d &apos;&quot;&apos;`
+
+#Replace the build number and respository URI placeholders with the constants above
+sed -e &quot;s;%BUILD_NUMBER%;${BUILD_NUMBER};g&quot; -e &quot;s;%REPOSITORY_URI%;${REPOSITORY_URI};g&quot; taskdef.json &gt; ${NAME}-v_${BUILD_NUMBER}.json
+#Register the task definition in the repository
+aws ecs register-task-definition --family ${FAMILY} --cli-input-json file://${WORKSPACE}/${NAME}-v_${BUILD_NUMBER}.json --region ${REGION}
+SERVICES=`aws ecs describe-services --services ${SERVICE_NAME} --cluster ${CLUSTER} --region ${REGION} | jq .failures[]`
+#Get latest revision
+REVISION=`aws ecs describe-task-definition --task-definition ${NAME} --region ${REGION} | jq .taskDefinition.revision`
+
+#Create or update service
+if [ &quot;$SERVICES&quot; == &quot;&quot; ]; then
+  echo &quot;entered existing service&quot;
+  DESIRED_COUNT=`aws ecs describe-services --services ${SERVICE_NAME} --cluster ${CLUSTER} --region ${REGION} | jq .services[].desiredCount`
+  if [ ${DESIRED_COUNT} != &quot;1&quot; ]; then
+    echo &quot;reseting desired count to 1&quot;
+    DESIRED_COUNT=&quot;1&quot;
+  fi
+  aws ecs update-service --cluster ${CLUSTER} --region ${REGION} --service ${SERVICE_NAME} --task-definition ${FAMILY}:${REVISION} --desired-count ${DESIRED_COUNT}
+else
+  echo &quot;entered new service&quot;
+  aws ecs create-service --service-name ${SERVICE_NAME} --desired-count 1 --task-definition ${FAMILY} --cluster ${CLUSTER} --region ${REGION}
+fi</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+
+# Check that status is 200 OK
+# TODOthis doesn't give aws time to bring up the new site/page
+# this points at the wrong place
+status_code=$(curl -o /dev/null --silent --head --write-out &apos;%{http_code}\n&apos; http://stelligent.tomrota.com)
+
+if [[ $status_code == &quot;200&quot; ]]
+then
+    echo &quot;Pass: status code is ${status_code}&quot;;
+else
+    echo &quot;Fail: status code is ${status_code}&quot;;
+fi
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>
