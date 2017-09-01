@@ -1,4 +1,5 @@
-Automation for the People
+This is for creating an infrastructure on AWS used for building and deploying a web app.
+
 ===========
 
 ## Running locally
@@ -14,15 +15,8 @@ Build and run using Docker Compose:
 
 [See the tutorial](http://docs.aws.amazon.com/AWSGettingStartedContinuousDeliveryPipeline/latest/GettingStarted/CICD_Jenkins_Pipeline.html) for a description of the AWS environment.
 
-[Download the jenkins cli](http://ec2-107-21-81-252.compute-1.amazonaws.com/jnlpJars/jenkins-cli.jar)
-
 A build is kicked off upon a checkin to this repo.
 
-To run a build command manually, use the Jenkins CLI...
-
-	$ java -jar jenkins-cli.jar -s http://ec2-107-21-81-252.compute-1.amazonaws.com/ build Stelligent
-
-Wait one minute, and check [http://stelligent.tomrota.com/](http://stelligent.tomrota.com/) to view changes
 
 ## Deploying to Docker Cloud
 

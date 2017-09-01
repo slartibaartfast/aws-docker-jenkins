@@ -9,6 +9,7 @@ import jenkins
 import requests
 import json
 from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 import time
 import settings    # our settings.py file
 
@@ -24,6 +25,7 @@ ecrclient = boto3.client('ecr')
 # - break this up into classes for stack creation, repository, stack config
 # - logging
 # - return the jenkins url and the app url to make manual confirmation easy
+# - try a t2.micro for the jenkins stack
 
 
 ECS_STACK_NAME = settings.ECS_STACK_NAME
@@ -41,6 +43,9 @@ JENKINS_JOB_TEMPLATE = settings.JENKINS_JOB_TEMPLATE
 # JenkinsJobName = "Demo"
 # JENKINS_JOB_NaME = "Demo"
 JENKINS_JOB_NAME = settings.JENKINS_JOB_NAME
+
+GITHUB_PROJECT = settings.GITHUB_PROJECT
+GITHUB_URL = settings.GITHUB_URL
 
 # for Docker
 # RepoName = 'scripted-repo'
@@ -392,8 +397,10 @@ def configure_jenkins_stack(StackName, JobTemplate):
     # add credentials for a jenkins user to log in to github
     # TODO: clean up hardcoded stirngs in job xml file and this one
     print('calling add credentials')
-    # add_jenkins_credentials(JenkinsStackName)
     add_jenkins_credentials(StackName)
+
+    # update the jenkins job template with the new credentials
+    edit_jenkins_job(token, JobTemplate)
 
     print('Creating Jenkins Job')
     # xml = open(JenkinsJobTemplate).read()
@@ -433,6 +440,7 @@ def add_jenkins_credentials(StackName):
         '': '0',
         'credentials':{'scope': 'GLOBAL',
         #'id': '85dc44be-a330-4328-af56-7de451f2a786',
+        # usually the token and the id are different
         'id': token,
         #'username': 'slartibaartfast',
         'username': GITHUB_USERNAME,
@@ -447,6 +455,27 @@ def add_jenkins_credentials(StackName):
     #r = requests.post(url, data=payload, headers=headers, auth=(JENKINS_USER, token))
     r = requests.post(url, data=payload, headers=headers)
     print(r)
+    return token
+
+
+# edit the job template to use our new token for github access
+def edit_jenkins_job(token, JobTemplate):
+    # <hudson.plugins.git.UserRemoteConfig>
+    #    <url> the github repo.git
+    #    <credentialsId> a valid jenkins credentialsId
+    tree = ET.parse(JobTemplate)
+    root = tree.getroot()
+
+    # fetch the xml fields we want to update
+    url = root.findall('.//hudson.plugins.git.UserRemoteConfig/url')
+    credentialsId = root.findall('.//hudson.plugins.git.UserRemoteConfig/credentialsId')
+
+    # set new values for url and credentialId
+    url[0].text = GITHUB_URL
+    credentialIds[0].text = token
+
+    # save the changes to the template file that got passed in
+    tree.write(JobTemplate)
 
 
 # create a private docker registry in ecr
