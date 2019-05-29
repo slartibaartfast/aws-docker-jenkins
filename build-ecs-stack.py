@@ -25,37 +25,23 @@ ecrclient = boto3.client('ecr')
 # - break this up into classes for stack creation, repository, stack config
 # - logging
 # - return the jenkins url and the app url to make manual confirmation easy
-# - try a t2.micro for the jenkins stack
+
 
 
 ECS_STACK_NAME = settings.ECS_STACK_NAME
 ECS_TEMPLATE = settings.ECS_TEMPLATE
 
-# JenkinsStackName = "JenkinsScriptedStack"
-#JENKINS_STACK_NAME = "JenkinsScriptedStack"
 JENKINS_STACK_NAME = settings.JENKINS_STACK_NAME
-# JenkinsTemplate = 'ecs-jenkins-demo.template'
-#JENKINS_TEMPLATE = 'ecs-jenkins-demo.template'
 JENKINS_TEMPLATE = settings.JENKINS_TEMPLATE
-# JenkinsJobTemplate = 'jenkins-job.xml'
-#JENKINS_JOB_TEMPLATE = 'jenkins-job.xml'
+
 JENKINS_JOB_TEMPLATE = settings.JENKINS_JOB_TEMPLATE
-# JenkinsJobName = "Demo"
-# JENKINS_JOB_NaME = "Demo"
 JENKINS_JOB_NAME = settings.JENKINS_JOB_NAME
 
 GITHUB_PROJECT = settings.GITHUB_PROJECT
 GITHUB_URL = settings.GITHUB_URL
 
 # for Docker
-# RepoName = 'scripted-repo'
-# DOCKER_REPO_NAME = 'scripted-repo'
 DOCKER_REPO_NAME = settings.DOCKER_REPO_NAME
-
-#user = "admin1"
-#pwd = "password01!"
-#githubUsername = 'slartibaartfast'
-#githubPassword = 'Password01!'
 
 JENKINS_USER = settings.JENKINS_USER
 JENKINS_PASSWORD = settings.JENKINS_PASSWORD
@@ -79,8 +65,6 @@ def execute_ssm_command(commands, instance_ids):
 
 # return the instanceid of a running stack
 def fetch_jenkins_instanceid(JenkinsStackName):
-    # TODO: this should be for any stack name
-
     response = ec2client.describe_instances(
         Filters=[
             {
@@ -103,7 +87,6 @@ def fetch_jenkins_instanceid(JenkinsStackName):
 
 # return the url for the Jenkins stack
 def fetch_jenkins_url(JenkinsStackName):
-    # TODO: this should be for any stack
     response = ec2client.describe_instances(
         Filters=[
             {
@@ -136,10 +119,6 @@ def fetch_jenkins_pwd(JenkinsStackName):
 
 # create a jenkins user
 def create_jenkins_user(instance_ids):
-    # on the server...
-    # sudo -i
-    # echo 'jenkins.model.Jenkins.instance.securityRealm.createAccount("user1", "jive01!")' | java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s "http://localhost:8080/" -auth "admin:$(cat /var/lib/jenkins/secrets/initialAdminPassword)" groovy =
-
     command = 'sudo echo \'jenkins.model.Jenkins.instance.securityRealm.createAccount(\"{}\", \"{}\")\' | java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s "http://localhost:8080/" -auth "admin:$(cat /var/lib/jenkins/secrets/initialAdminPassword)" groovy ='.format(JENKINS_USER, JENKINS_PASSWORD)
     commands = []
     commands.append(command)
@@ -225,13 +204,6 @@ def validate_template(Template):
 
 # open the template and build the stack
 def create_ecs_stack(StackName, Template):
-    # TODO: paramater values should be variables
-    # TODO: generate a token?
-    # TODO: put this in a try except
-    # TODO: how do you set the stack_set_name during stack creation?
-    #       Is it the same as the stack name? No.
-    #       It dosn't seem to exist at this point.
-
     # see if the stack already exists
     if check_stack_exists(StackName):
         # the stack exists, delete it
@@ -242,7 +214,6 @@ def create_ecs_stack(StackName, Template):
 
     print("calling create_stack for ", StackName)
     with open(Template, 'r') as f:
-        #response = cfclient.validate_template(TemplateBody=f.read())
         response = client.create_stack(
             StackName=StackName,
             TemplateBody=f.read(),
@@ -296,16 +267,6 @@ def create_jenkins_stack(StackName, Template):
     # check syntax of the template for the new stack
     validate_template(Template)
 
-    # TODO: put this in a try except
-    # aws cloudformation create-stack
-    # --template-body file://ecs-jenkins-demo.template
-    # --stack-name JenkinsStack
-    # --capabilities CAPABILITY_IAM
-    # --tags Key=Name,Value=Jenkins
-    # --region us-west-2
-    # --parameters
-    #    ParameterKey=EcsStackName,ParameterValue=EcsClusterStack
-
     # create the Jenkins stack
     print('creating the Jenkins stack')
     #with open(JenkinsTemplate, 'r') as f:
@@ -336,9 +297,7 @@ def create_jenkins_stack(StackName, Template):
         )
 
     # get a waiter and wait until create_stack finishes
-    # TODO: move to own function
     cf_create_complete_waiter = client.get_waiter('stack_create_complete')
-    # cf_create_complete_waiter.wait(StackName=JenkinsStackName)
     cf_create_complete_waiter.wait(StackName=StackName)
 
 
@@ -351,19 +310,9 @@ def configure_jenkins_stack(StackName, JobTemplate):
     jenkinsUrl = fetch_jenkins_url(StackName)
     instance_ids = fetch_jenkins_instanceid(StackName)
 
-    print(instance_ids)
-
-    #InstanceIds = []
-    #InstanceIds.append('instance_ids')
     cf_status_ok_waiter = ec2client.get_waiter('instance_status_ok')
     cf_status_ok_waiter.wait(InstanceIds=[instance_ids])
 
-    #jenkinsUrl = fetch_jenkins_url(JenkinsStackName)
-    #instance_ids = fetch_jenkins_instanceid(JenkinsStackName)
-
-    # wait for aws to finish status checks
-    # TODO: see if boto can check this
-    #time.sleep(120)
     create_jenkins_user(instance_ids)
 
     # TODO: need a better waiter
@@ -395,7 +344,6 @@ def configure_jenkins_stack(StackName, JobTemplate):
     server.wait_for_normal_op(30)
 
     # add credentials for a jenkins user to log in to github
-    # TODO: clean up hardcoded stirngs in job xml file and this one
     print('calling add credentials')
     add_jenkins_credentials(StackName)
 
@@ -403,46 +351,32 @@ def configure_jenkins_stack(StackName, JobTemplate):
     edit_jenkins_job(token, JobTemplate)
 
     print('Creating Jenkins Job')
-    # xml = open(JenkinsJobTemplate).read()
     xml = open(JobTemplate).read()
-    #xml = xml % quiet_period
-    # server.create_job(JenkinsJobName, xml)
     server.create_job(JENKINS_JOB_NAME, xml)
-
-    # TODO: add github hook
-    #       this is in the job config, on a per job basis?
 
 
 # add a jenkins user to run the job
 def add_jenkins_credentials(StackName):
     jenkinsUrl = fetch_jenkins_url(StackName)
     token = fetch_user_token(jenkinsUrl, JENKINS_USER, JENKINS_PASSWORD)
-    #print(token)
-    #print(JENKINS_USER)
 
     # get the crumb
-    #c = requests.get('http://admin1:a44fb377c91a34777c013e7f8f6e87cb@ec2-54-89-36-223.compute-1.amazonaws.com/crumbIssuer/api/xml/crumbIssuer/api/xml')
     crumbUrl = 'http://' + JENKINS_USER + ':' + token + '@' + jenkinsUrl + '/crumbIssuer/api/xml/crumbIssuer/api/xml'
     c = requests.get(crumbUrl)
-    # c = requests.get('http://admin1:a44fb377c91a34777c013e7f8f6e87cb@ec2-54-89-36-223.compute-1.amazonaws.com/crumbIssuer/api/xml/crumbIssuer/api/xml')
     soup = BeautifulSoup(c.text, "html.parser")
     crumb = soup.find('crumb').string
     print('crumbUrl ', crumbUrl)
     print('crumb', crumb)
 
     # create the credentials
-    # url = 'http://admin1:a44fb377c91a34777c013e7f8f6e87cb@' + jenkinsUrl + '/credentials/store/system/domain/_/createCredentials'
     url = 'http://' + JENKINS_USER + ':' + token + '@' + jenkinsUrl + '/credentials/store/system/domain/_/createCredentials'
     print(url)
-    # headers = {'Jenkins-Crumb': 'e9e78454ba34da482871de8b5936c26e'}
     headers = {'Jenkins-Crumb': crumb}
     data = {
         '': '0',
         'credentials':{'scope': 'GLOBAL',
-        #'id': '85dc44be-a330-4328-af56-7de451f2a786',
         # usually the token and the id are different
         'id': token,
-        #'username': 'slartibaartfast',
         'username': GITHUB_USERNAME,
         'password': GITHUB_PASSWORD,
         'description':'Jenkins user for running build jobs from github',
@@ -460,9 +394,6 @@ def add_jenkins_credentials(StackName):
 
 # edit the job template to use our new token for github access
 def edit_jenkins_job(token, JobTemplate):
-    # <hudson.plugins.git.UserRemoteConfig>
-    #    <url> the github repo.git
-    #    <credentialsId> a valid jenkins credentialsId
     tree = ET.parse(JobTemplate)
     root = tree.getroot()
 
@@ -502,7 +433,6 @@ def do_steps():
 
     # create the Jenkins stack
     print('calling create_jenkins_stack')
-    # create_jenkins_stack(StackName=JenkinsStackName, Template=JenkinsTemplate)
     create_jenkins_stack(StackName=JENKINS_STACK_NAME, Template=JENKINS_TEMPLATE)
 
     # create the aws registry for docker
@@ -512,18 +442,11 @@ def do_steps():
     # configure jenkins
     print('configuring Jenkins')
     configure_jenkins_stack(
-        # StackName=JenkinsStackName,
         StackName=JENKINS_STACK_NAME,
-        # JobTemplate=JenkinsJobTemplate
         JobTemplate=JENKINS_JOB_TEMPLATE
         )
 
     print('finished')
-
-    # create a subdomain and load ballancer?
-
-    # run tests
-    #run_tests(url='http://stelligent.tomrota.com')
 
 
 if __name__ == "__main__":
